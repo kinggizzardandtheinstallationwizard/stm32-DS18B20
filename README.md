@@ -1,99 +1,99 @@
-# DS18B20 libopencm3 OneWire library для stm32
+# DS18B20 libopencm3 OneWire library for stm32
 
-Проверка осуществлялась на stm32f103c8t6, однако, список оддерживаемых устройства должен быть намного шире. Фактически, не использовался
-никакой, специфичный именно для stm32f1, код.
+The test was carried out on stm32f103c8t6, however, the list of supported devices should be much wider. Actually not used
+no code specific to stm32f1.
 
-## Описание библиотеки
+## Description of the library
 
-Библиотека разработана для работы с широко распространёнными датчиками температуры Maxim (Dallas) DS18B20
-по протоколу OneWire.
+The library is designed to work with widely used temperature sensors Maxim (Dallas) DS18B20
+by the OneWire protocol.
 
-В качестве основы реализации была выбрана библиотека [libopencm3](https://libopencm3.github.io/).
-libopencm3 является очень удачной основой для программирования на stm32, однако, в связи с плохой документацией
-является слегка недооценённой со стороны хобистов. Получающийся код получается легко читаемым, компактным и эффективным, по сравнению с 
+The library [libopencm3](https://libopencm3.github.io/) was chosen as the basis for the implementation.
+libopencm3 is a very good basis for programming on stm32, however, due to poor documentation
+is slightly underrated by hobbyists. The resulting code is easy to read, compact and efficient, compared to
 SPL и HAL от ST Microelectronics.
 
-Библитека OneWire реализует SKIP, SEARCH, MATCH, READ, READ SCRATCHPAD, CONVERT TEMPERATURE, RECALL E2 и др.  команды и работает на микроконтроллере 
-stm32f103c8t6 и, вероятнее всего, массе других.
+The OneWire library implements SKIP, SEARCH, MATCH, READ, READ SCRATCHPAD, CONVERT TEMPERATURE, RECALL E2 and other commands and runs on a microcontroller
+stm32f103c8t6 and, most likely, a host of others.
 
-Библиотека предполагает подключение датчиков (до 75 на одной линии) к любому из выходов TX USART/UART. Предполагается наличие 
-внешнее питание датчиков и подтяжка DATA линии к линии питания сопротивлением с номиналом, соответствующим задаче 
-(по-умолчанию 4.7K). Режим работы USART/UART в данном случае полудуплексный. В распоряжении разработчика остаётся свободный(е) gpio.
+The library involves connecting sensors (up to 75 on one line) to any of the TX USART/UART outputs. Assumes availability
+external power supply of sensors and pull-up of the DATA line to the power line with a resistance with a rating corresponding to the task
+(default 4.7K). The USART/UART operating mode in this case is half-duplex. The developer still has free gpio(s) at his disposal.
 
-Предполагается [использование аппаратного USART/UART](https://www.maximintegrated.com/en/app-notes/index.mvp/id/214). Билиотека должна неплохо работать в составе RTOS, потому что, фактически, все критичные 
-операции сделаны атомарными.
+Assuming [use of hardware USART/UART](https://www.maximintegrated.com/en/app-notes/index.mvp/id/214). The library should work well as part of an RTOS, because, in fact, all critical
+operations are made atomic.
 
-Библиотека позволяет организовать 5 независимых шин OneWire (по количеству аппаратной поддержки USART/UART). Количество устройств на шине определятеся 
-разработчиком. В режиме "по умолчанию" ожидается до 5 устройств на шине. 
+The library allows you to organize 5 independent OneWire buses (according to the number of USART/UART hardware support). The number of devices on the bus is determined
+developer. In default mode, up to 5 devices are expected on the bus.
 
-Проект собирается на Clion на любой ОС (Mac OS X, Windows, Linux) + arm-none-eabi + cmake. Отладка осуществлялась blackmagic probe и .gdbinit
-соответствует инициализации процесса подключения.
+The project is built on Clion on any OS (Mac OS X, Windows, Linux) + arm-none-eabi + cmake. Debugging was carried out by blackmagic probe and .gdbinit
+corresponds to initialization of the connection process.
 
-## Немного о датчике 
+## A little about the sensor
 
-Датчик DS18B20, равно как и DS18S20, относится к классу устройств, назначение и работа которых требует пояснения.
+The DS18B20 sensor, as well as the DS18S20, belongs to a class of devices whose purpose and operation require explanation.
 
-Во-первых, эти датчики обладают собственной памятью, настройками и логикой работы. Их взаимодействие с uK осуществляется на основании возможных протоколов взаимодействия.
-В процессе подготовки новых данных датчик потребляет довольно много электроэнергии (до 1.5mA) и поэтому не осуществляет замер непрерывно.
-Поэтому, последнее сделанное им измерение не означает "текущую температуру". Разумно предположить, что пока датчику отослана команда на 
-измерение температуры, микроконтроллер должен быть занят чем-то полезным (или сном), вместо простого ожидания готовности сенсора.
+Firstly, these sensors have their own memory, settings and operating logic. Their interaction with uK is carried out on the basis of possible interaction protocols.
+In the process of preparing new data, the sensor consumes quite a lot of electricity (up to 1.5mA) and therefore does not measure continuously.
+Therefore, the last measurement he made does not mean the "current temperature". It is reasonable to assume that while a command has been sent to the sensor
+temperature measurement, the microcontroller should be busy with something useful (or sleep), instead of simply waiting for the sensor to be ready.
 
-Во-вторых, датчик умеет довольно много кроме измерения температуры. Так, например, датчик умеет устанавливать границы "тревоги" и в ответ на 
-специальный запрос сообщать о том, что температура вышла за эти пределы. Это может быть полезно, например, для такого сценария:
-размещение группы датчиков по территории (например, вдоль стены), одновременная посылка запроса на измерение температуры, а после, команды на 
-определение тех датчиков, измеренная темпетарута которых выходит за установленные ранее пределы. Соотвественно опрос потом не всех датчиков, 
-а лишь тех, которые сформировали "тревогу".
+Secondly, the sensor can do quite a lot besides measuring temperature. For example, the sensor can set “alarm” limits and in response to
+special request to report that the temperature has exceeded these limits. This could be useful for example for a scenario like this:
+placement of a group of sensors around the territory (for example, along a wall), simultaneous sending of a request to measure the temperature, and then a command to
+identification of those sensors whose measured temperature goes beyond previously established limits. Accordingly, then polling not all sensors,
+but only those who generated “anxiety”.
 
-Кроме этого, эти два байта датчика (устанавливающие границы тревоги) могут использовать произвольным образом для сохранения какой-то информации, которая может быть сохранена 
-в EEPROM датчика и использоваться позднее.
+In addition, these two sensor bytes (which set the alarm limits) can be used arbitrarily to store some information that can be stored
+in the sensor EEPROM and used later.
 
-Понятно, что эти датчики предназначены для очень удалённого размещения от uK. Его удалённость может составлять десятки метров 
-(реально метров до 30).
+It is clear that these sensors are intended to be placed very far from uK. Its distance can be tens of meters
+(actually up to 30 meters).
 
 
-## Структура программы
+## Program structure
 
-Предположим, что шина OneWire будет реализовываться на USART3 синей таблетки (bluepile) stm32f103c8t6, очень дешевой и доступной плате для экспериментов.
-Библиотека использует соответствующее прерывание(я), чтобы организовать чтение RX в момент передачи в линию по TX. Напоминает создание 
-loopback на UART. 
+Let's assume that the OneWire bus will be implemented on the USART3 of the blue tablet (bluepile) stm32f103c8t6, a very cheap and affordable board for experiments.
+The library uses the appropriate interrupt(s) to organize the reading of RX at the time of transfer to the line via TX. Reminds me of creation
+loopback на UART.
 
-Поэтому следует объявить:
+Therefore you should declare:
 
 ```C
-// Должно быть объявлено ДО include "OneWire.h", чтобы был добавлен обработчик соответствующего прерывания
+// Must be declared BEFORE include "OneWire.h" so that the appropriate interrupt handler is added
 //#define ONEWIRE_UART5
 //#define ONEWIRE_UART4
-#define ONEWIRE_USART3 
+#define ONEWIRE_USART3
 //#define ONEWIRE_USART2
 //#define ONEWIRE_USART1
 
-//максимальное количество устройств на шине по-умолчанию
-//MAXDEVICES_ON_THE_BUS 5 
+//maximum number of devices on the bus by default
+//MAXDEVICES_ON_THE_BUS 5
 
 #include "OneWire.h"
 ```
 
-Для того, чтобы использовать библиотеку следует инициализировать "часы" в `static void clock_setup(void)`: 
+In order to use the library, you should initialize the “clock” in `static void clock_setup(void)`:
 
 ```C
-    rcc_periph_clock_enable(RCC_GPIOB);
+rcc_periph_clock_enable(RCC_GPIOB);
 ```
 
-После, настроить gpio в `static void gpio_setup(void)`:
+Afterwards, configure gpio in `static void gpio_setup(void)`:
 
 ```C
-    gpio_set_mode(GPIOB, GPIO_MODE_OUTPUT_10_MHZ,
-                  GPIO_CNF_OUTPUT_ALTFN_OPENDRAIN, GPIO_USART3_TX | GPIO_USART3_RX);
+gpio_set_mode(GPIOB, GPIO_MODE_OUTPUT_10_MHZ,
+GPIO_CNF_OUTPUT_ALTFN_OPENDRAIN, GPIO_USART3_TX | GPIO_USART3_RX);
 
 ```
 
-И объявить (локальную или глобальную -- как удобнее) переменную, которая будет хранить сведения об устройствах на шине:
+And declare (local or global - whichever is more convenient) a variable that will store information about devices on the bus:
 
 ```C
 OneWire ow;
 ```
 
-Если Вы хотите увеличить/уменьшить количество устройств о которых будет сохранена информация по умолчанию самостоятельно определите ДО 
-подключения OneWire.h `MAXDEVICES_ON_THE_BUS`
+If you want to increase/decrease the number of devices about which information will be saved by default, determine it yourself BEFORE
+connections OneWire.h `MAXDEVICES_ON_THE_BUS`
 
-После этого всё готово к использованию.
+After this, everything is ready to use.
